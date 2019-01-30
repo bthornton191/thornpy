@@ -1,0 +1,10 @@
+# Ignore the build and folders
+build/
+dist/
+
+# Ignore all pycache files
+__pycache__/
+*/__pycache__/
+
+# VS Code Files
+.vscode/
