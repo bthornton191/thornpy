@@ -12,8 +12,11 @@ def str_is_float(numeric_string):
     """
     is_float = False
     if numeric_string:
+        # If the string is not empty check if it contains numbers
         if numeric_string.replace('.','',1).replace('-','',1).isdigit():
-            is_float = True
+            # If the string contains numbers, check if it contains a decimal
+            if '.' in numeric_string:
+                is_float = True
     return is_float
 
 def str_is_int(numeric_string):
@@ -42,8 +45,11 @@ def str_is_pos_float(numeric_string):
     """
     is_float = False
     if numeric_string:
+        # If the string is not empty check if it contains numbers
         if numeric_string.replace('.','',1).isdigit():
-            is_float = True
+            # If the string contains numbers, check if it contains a decimal
+            if '.' in numeric_string:
+                is_float = True
     return is_float
 
 def str_is_pos_int(numeric_string):

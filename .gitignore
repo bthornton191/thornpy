@@ -1,6 +1,7 @@
 # Ignore the build and folders
 build/
 dist/
+thornpy.egg-info
 
 # Ignore all pycache files
 __pycache__/
