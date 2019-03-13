@@ -1,14 +1,40 @@
 """numtype contains functions for checking the type of number that is contained within a string.
 """
 
+def str_is_pos_num(numeric_string):
+    """Returns true if the string is a number
+    
+    Arguments
+    ---------
+    string : str
+        String representing a number
+    
+    Returns
+    -------
+    bool
+        True if the string is a float
+    """
+    is_numeric = False
+    if numeric_string:
+        # If the string is not empty check if it contains numbers
+        if numeric_string.replace('.','',1).replace('-','',1).isdigit():
+            is_numeric = True
+    
+    return is_numeric
+
+
 def str_is_float(numeric_string):
     """Returns true if the string is a float
     
-    Arguments:
-        string {str} -- String representing a number
+    Arguments
+    ---------
+    string : str
+        String representing a number
     
-    Returns:
-        bool -- True if the string is a float
+    Returns
+    -------
+    bool
+        True if the string is a float
     """
     is_float = False
     if numeric_string:
@@ -22,11 +48,15 @@ def str_is_float(numeric_string):
 def str_is_int(numeric_string):
     """Returns true if the string is an integer
     
-    Arguments:
-        string {str} -- String representing a number
+    Arguments
+    ---------
+    string : str
+        String representing a number
     
-    Returns:
-        bool -- True if the string is an integer
+    Returns
+    -------
+    bool
+        True if the string is an integer
     """
     is_int = False
     if numeric_string:
@@ -37,11 +67,15 @@ def str_is_int(numeric_string):
 def str_is_pos_float(numeric_string):
     """Returns true if the string is a positive float
     
-    Arguments:
-        string {str} -- String representing a number
+    Arguments
+    ---------
+    string : str 
+        String representing a number
     
-    Returns:
-        bool -- True if the string is a positive float
+    Returns
+    -------
+    bool
+        True if the string is a positive float
     """
     is_float = False
     if numeric_string:
@@ -55,11 +89,15 @@ def str_is_pos_float(numeric_string):
 def str_is_pos_int(numeric_string):
     """Returns true if the string is a positive integer
     
-    Arguments:
-        string {str} -- String representing a number
+    Arguments
+    ---------
+    string : str
+        String representing a number
     
-    Returns:
-        bool -- True if the string is a positive integer
+    Returns
+    -------
+    bool
+        True if the string is a positive integer
     """
     is_int = False
     if numeric_string:
