@@ -28,8 +28,7 @@ def low_pass(sig, time, freq_cutoff, N=5):
     omega = freq_cutoff/freq_samp*2
     b_coef, a_coef = butter(N, omega)
     return list(filtfilt(b_coef, a_coef, sig)), time
-    
-    
+        
 def step_function(index, start, init_val, end, final_val):
     """Approximates the Heaviside step function with a cubic polynomial.
     
