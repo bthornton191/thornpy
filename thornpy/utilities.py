@@ -104,4 +104,4 @@ def convert_path(filepath):
         Converted filepath
 
     """
-    return os.path.normpath(filepath.replace('//', os.sep).replace('/', os.sep))
+    return os.path.normpath(filepath.replace('\\', os.sep).replace('/', os.sep))
