@@ -1,6 +1,8 @@
 """Miscellaneous tools.
 
 """
+import os
+
 def num_to_ith(num):
     """Converts an integer to a string containing an ordinal number (1st, 2nd, 3rd, ect.)
     
@@ -87,3 +89,19 @@ def read_data_string(text, delimiter=',', newline='\n', has_headerline=True):
             data.append(line_data)
 
     return data
+
+def convert_path(filepath):
+    """Converts the slashes in `filepath` to whatever is appropriate for the current OS.
+    
+    Parameters
+    ----------
+    filepath : str
+        Filepath to be converted
+    
+    Returns
+    -------
+    str
+        Converted filepath
+
+    """
+    return os.path.normpath(filepath.replace('//', os.sep).replace('/', os.sep))
