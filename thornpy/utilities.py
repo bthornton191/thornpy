@@ -3,6 +3,9 @@
 """
 import os
 
+from scipy.io import loadmat
+import pandas as pd
+
 def num_to_ith(num):
     """Converts an integer to a string containing an ordinal number (1st, 2nd, 3rd, ect.)
     
@@ -105,3 +108,42 @@ def convert_path(filepath):
 
     """
     return os.path.normpath(filepath.replace('\\', os.sep).replace('/', os.sep))
+
+def mat_to_pd(filename, data_start=None, data_end=None):
+    """Creates a pandas dataframe from a .mat file
+    
+    Parameters
+    ----------
+    filename : str
+        Filename of a .mat file
+    
+    Returns
+    -------
+    dataframe
+        Pandas datafrom of data in `filename`
+
+    """
+    mat = loadmat(filename)  # load mat-file
+    
+    dataframes = []
+    
+    for variable in [var for var in mat if var not in ['__header__', '__globals__', '__version__']]:        
+        
+        if mat[variable].shape[1] == 1:
+            array = mat[variable]
+        elif mat[variable].shape[0] == 1:
+            array = mat[variable].transpose()
+        else:
+            raise ValueError(f'{filename} does not contain the expected data!')
+        
+        # Figure out data start and end indices if given
+        if data_start is None:            
+            data_start = 0            
+        if data_end is None:
+            data_end = len(array)
+
+        dataframes.append(pd.DataFrame(array[data_start:data_end], columns=[variable]))
+
+    dataframe = pd.concat(dataframes, axis=1)
+
+    return dataframe
