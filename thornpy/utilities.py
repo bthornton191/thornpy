@@ -2,6 +2,7 @@
 
 """
 import os
+import csv
 
 from scipy.io import loadmat
 import pandas as pd
@@ -147,3 +148,19 @@ def mat_to_pd(filename, data_start=None, data_end=None):
     dataframe = pd.concat(dataframes, axis=1)
 
     return dataframe
+
+def dict_to_csv(data, filename):
+    """Writes data in `dict` to a csv file with the keys as headers and the values as columns.
+    
+    Parameters
+    ----------
+    data : dict
+        Dictionary of data
+    filename : str
+        Name of file to write data to. (include extension)
+
+    """
+    with open(filename, 'w', newline='') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerow(data.keys())
+        writer.writerows(zip(*data.values()))

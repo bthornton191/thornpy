@@ -2,3 +2,4 @@
 """
 from thornpy import numtype
 from thornpy import utilities
+from thornpy import mechanics

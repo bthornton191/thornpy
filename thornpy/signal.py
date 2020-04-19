@@ -10,9 +10,9 @@ def low_pass(sig, time, freq_cutoff, N=5):
     sig : list
         Signal to be filtered
     time : list
-        Time signal associated with `sig`
+        Time signal in seconds associated with `sig`
     freq_cutoff : int
-        Cutoff frequency to use when filtering
+        Cutoff frequency in Hz to use when filtering
     N : int
         Order of butterworth filter (default is 5)
     
