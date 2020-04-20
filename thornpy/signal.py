@@ -239,11 +239,11 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
     print(f'dt: {n_fft*t_s}')
 
     if input_sig is None:
-        return fig, time, sig        
+        return (fig, time, sig)
     elif return_order_cuts is None:
-        return fig, time, input_sig_rpm, sig
+        return (fig, time, sig, input_sig_rpm)
     else:
-        return fig, time, input_sig_rpm, sig, order_cuts
+        return (fig, time, sig, input_sig_rpm, order_cuts)
 
 def check_num_points(num, n_fft):    
     if num < n_fft:
