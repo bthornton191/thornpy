@@ -206,10 +206,10 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
 
         # Plot Order Waterfall
         if f_range is not None:
-            i_min = np.argmax(freqs>=f_range[0])
-            i_max = np.argmax(freqs>=f_range[1])
+            i_min = int(np.argmax(freqs>=f_range[0])) if min(freqs)<f_range[0] else 0
+            i_max = int(np.argmax(freqs>=f_range[1])) if max(freqs)>f_range[1] else len(freqs)
         else:
-            i_min = len(freqs)
+            i_min = 0
             i_max = len(freqs)
 
         wtrfl_surf = axes[2].contourf(x_order[i_min:i_max], y_order[i_min:i_max], Pxx[i_min:i_max], 250, cmap=cm.get_cmap('nipy_spectral', 100), extend='min')
@@ -231,7 +231,7 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
 
         # Generate Order Cut Plots
         if return_order_cuts is not None:
-            order_cuts = _order_cut_plot(input_bins, freqs, Pxx, return_order_cuts, y_label=y_label)
+            order_cuts = _order_cut_plot(input_bins, freqs[i_min:i_max], Pxx[i_min:i_max], return_order_cuts, y_label=y_label)
         
     fig.set_size_inches(10,10)
     fig.tight_layout()
@@ -359,12 +359,19 @@ def _order_cut_plot(input_sig, freqs, Pxx, orders, input_to_hz=1/60, input_unit=
     """
     fig, axes = plt.subplots(nrows=len(orders))
     for ax, order in zip(axes, orders):
-        freqs_to_plot = [in_sig*input_to_hz*order for in_sig in input_sig]
-        i_freqs = [_find_nearest(freqs, f) for f in freqs_to_plot]
+
+        # Get the speeds that keep this order within the range in freqs
+        speeds_in_range = [speed for speed in input_sig if min(freqs) <= speed*input_to_hz*order <= max(freqs)]
+
+        # Get the order frequencies
+        order_freqs = [speed*input_to_hz*order for speed in speeds_in_range]
+
+        i_freqs = [_find_nearest(freqs, f) for f in order_freqs]
         
-        amp = [Pxx[i][j] for i,j in zip(i_freqs,range(len(input_sig)))]
+        # Get the order amplitudes
+        amp = [Pxx[i][j] for i,j in zip(i_freqs, range(len(speeds_in_range)))]
         
-        ax.plot(input_sig, amp)
+        ax.plot(speeds_in_range, amp)
         ax.set_xlabel(input_unit)
 
         if y_label is not None:
