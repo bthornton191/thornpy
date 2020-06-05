@@ -4,7 +4,10 @@ from scipy.signal import butter, filtfilt, find_peaks
 from scipy.signal.windows import hann, hamming, blackman, boxcar
 import matplotlib.pyplot as plt
 from matplotlib import cm  
+from matplotlib.colors import Normalize
 import numpy as np
+
+
 
 def low_pass(sig, time, freq_cutoff, N=5):
     """Applies a Nth order butterworth lowpass filter.
@@ -71,7 +74,7 @@ def step_function(index, start, init_val, end, final_val):
     step += [final_val for ind in index if ind >= end]
     return step
 
-def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=None, t_max=None, input_sig=None, input_conversion_factor=60/360, input_unit='RPM', response_unit=None, response_conversion_factor=1, psd=False, z_scale='linear', order_lines=None, f_range=None, clean_sig=None, return_order_cuts=None):
+def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=None, t_max=None, input_sig=None, input_conversion_factor=60/360, input_unit='RPM', response_unit=None, response_conversion_factor=1, psd=False, z_scale='linear', order_lines=None, f_range=None, clean_sig=None, return_order_cuts=None, vmin=None, vmax=None):
     """Genenerates a waterfall plot from data in an Adams result or request file.
     
     Parameters
@@ -92,6 +95,10 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
         Start time if cropping data, by default None
     t_max : float, optional
         End time if cropping data, by default None
+    vmin : float, optional
+        Colorbar min (default is None which autoscales)
+    vmax : float, optional
+        Colorbar max (default is None which autoscales)    
     input_sig : list, optional
         Time signal of input shaft speed, by default None
     input_time : list, optional
@@ -178,7 +185,12 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
         # ----------------
         # 3D FFT
         # ----------------        
-        wtrfl_surf = axes[1].contourf(x_wtrfl, y_wtrfl, Pxx, 250, cmap=cm.get_cmap('nipy_spectral'), extend='min')
+        if vmin is None:
+            vmin = Pxx.min()
+        if vmax is None:
+            vmax = Pxx.max()
+        cmap = cm.get_cmap('nipy_spectral', 100)
+        wtrfl_surf = axes[1].contourf(x_wtrfl, y_wtrfl, Pxx, 250, cmap=cmap, extend='both', vmin=vmin, vmax=vmax)
         axes[1].set_xlim(time[0], time[-1])
         axes[1].set_xlabel('Time (s)')
         axes[1].set_ylabel('Frequency (Hz)')
@@ -211,8 +223,13 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
         else:
             i_min = 0
             i_max = len(freqs)
-
-        wtrfl_surf = axes[2].contourf(x_order[i_min:i_max], y_order[i_min:i_max], Pxx[i_min:i_max], 250, cmap=cm.get_cmap('nipy_spectral', 100), extend='min')
+ 
+        if vmin is None:
+            vmin = Pxx[i_min:i_max].min()
+        if vmax is None:
+            vmax = Pxx[i_min:i_max].max()
+        cmap = cm.get_cmap('nipy_spectral', 100)
+        wtrfl_surf = axes[2].contourf(x_order[i_min:i_max], y_order[i_min:i_max], Pxx[i_min:i_max], 250, cmap=cmap, extend='both', vmin=vmin, vmax=vmax)
         axes[2].set_xlabel(input_unit)
         axes[2].set_ylabel('Frequency (Hz)')
 
@@ -226,7 +243,10 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
             y_label = response_unit if z_scale.lower()!='db' else 'dB'
 
         # Add colorbar
-        cbar = fig.colorbar(wtrfl_surf)
+        sm = cm.ScalarMappable(norm=Normalize(vmin, vmax), cmap=cmap)
+        sm.set_array([vmin, vmax])
+        sm.autoscale()
+        cbar = fig.colorbar(sm, ticks=np.linspace(vmin, vmax, 10))
         cbar.set_label(y_label)
 
         # Generate Order Cut Plots
