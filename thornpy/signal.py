@@ -418,15 +418,14 @@ def _find_nearest(array, value):
 
 def manually_clean_sig(x, y, fig=None, print_debug=False):
     
-    def onpick(event, fig, ax, x, y):
-        if isinstance(event.artist, Line2D):
+    def onpick(event, fig, x, y):
+        if isinstance(event.artist, Line2D) and event.ind[0] not in [0, len(x)-1]:
             ind = event.ind[0]            
             
             if print_debug is True:
                 print(f'({x[ind]}, {y[ind]})   |   i={ind}   |   lenx={len(x)}')
             
-            x.pop(ind)
-            y.pop(ind)
+            y[ind] = np.interp(x[ind], [x[ind-1], x[ind+1]], [y[ind-1], y[ind+1]])
             
             fig.clear()
             manually_clean_sig(x, y, fig=fig)
@@ -445,7 +444,7 @@ def manually_clean_sig(x, y, fig=None, print_debug=False):
     ax.plot(x, y, linestyle='-', linewidth='1', marker='.', markersize=5, picker=2)
     ax.grid()  
 
-    fig.canvas.mpl_connect('pick_event', lambda e : onpick(e, fig, ax, x, y))
+    fig.canvas.mpl_connect('pick_event', lambda evt: onpick(evt, fig, x, y))
     
     if show_new is True:
         plt.show()
