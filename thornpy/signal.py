@@ -5,6 +5,7 @@ from scipy.signal.windows import hann, hamming, blackman, boxcar
 import matplotlib.pyplot as plt
 from matplotlib import cm  
 from matplotlib.colors import Normalize
+from matplotlib.lines import Line2D
 import numpy as np
 
 
@@ -130,12 +131,12 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
         Waterfall plot
 
     """    
-    if clean_sig is not None:
-        sig, i_removed = _clean_sig(sig, clean_sig)
-
     # Convert to other unis (for converting to Gs)
     if response_conversion_factor is not None:
         sig = [v*response_conversion_factor for v in sig]
+        
+    if clean_sig is not None:
+        sig, i_removed, dirty_sig = _clean_sig(sig, clean_sig)
     
     check_num_points(len(time), n_fft)
 
@@ -144,9 +145,7 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
     
     _fig, (ax1, ax2) = plt.subplots(nrows=2)
     ax1.plot(time, sig)
-    # plt.grid()
 
-    # Pxx, freqs, bins, im = ax2.specgram(sig, NFFT=n_fft, Fs=f_s, noverlap=percent_overlap/100*n_fft, window=get_window(window))
     Pxx, freqs, bins, im = ax2.specgram(sig, NFFT=n_fft, Fs=f_s, noverlap=percent_overlap/100*n_fft, detrend='mean', mode='magnitude' if psd is False else 'psd', scale=z_scale, cmap='nipy_spectral')
     # The `specgram` method returns 4 objects. They are:
     # - Pxx: the periodogram
@@ -166,12 +165,18 @@ def fft_watefall(time, sig, percent_overlap=50, n_fft=1024, title=None, t_min=No
     # ----------------
     x_wtrfl, y_wtrfl = np.meshgrid(bins+time[0], freqs)
     fig, axes = plt.subplots(nrows=2 if input_sig is None else 3)
-    axes[0].plot(time, sig)
+        
+    axes[0].plot(time, sig, zorder=2)
+
+    y_lim = axes[0].get_ylim()
     
-    if clean_sig is not None:
-        axes[0].plot([time[i] for i in i_removed], [sig[i] for i in i_removed], '.', markersize=3)
+    # if clean_sig is not None:
+    #     axes[0].plot(time, dirty_sig, '--', linewidth=1, zorder=1)
+    #     axes[0].plot([time[i] for i in i_removed], [sig[i] for i in i_removed], '.', markersize=3, zorder=3)
 
     axes[0].set_xlim(time[0], time[-1])
+    axes[0].set_ylim(y_lim[0], y_lim[1])
+
     if response_unit is None:
         axes[0].set_ylabel(response_unit)
     else:
@@ -316,7 +321,7 @@ def _add_order_lines(ax, orders, input_unit):
 
         # Add annotation
         box_props = dict(boxstyle='round', pad=.3, fc='white', ec='black')
-        ax.annotate(f'{order:.1f}', (x_coords[-1], y_coords[-1]), bbox=box_props)
+        ax.annotate(f'{order:.0f}', (x_coords[-1], y_coords[-1]), bbox=box_props)
 
 def _get_conversion_to_hz(input_unit):
     """Given a unit returns the factor to convert to Hz.
@@ -343,13 +348,13 @@ def _get_conversion_to_hz(input_unit):
     return input_to_hz
 
 def _clean_sig(sig, n_sigma):
-    sig = np.array(sig)
-    i_pks, _ = find_peaks(np.abs(sig), threshold=np.std(sig)*n_sigma)
+    cleaned_sig = np.array(sig)
+    i_pks, _ = find_peaks(np.abs(cleaned_sig), prominence=np.std(cleaned_sig)*n_sigma)
 
     for i_pk in i_pks:
-        sig[i_pk] = np.mean([sig[i_pk-1], sig[i_pk+1]])
+        cleaned_sig[i_pk] = np.mean([cleaned_sig[i_pk-1], cleaned_sig[i_pk+1]])
 
-    return list(sig), list(i_pks)
+    return list(cleaned_sig), list(i_pks), list(sig)
 
 def _order_cut_plot(input_sig, freqs, Pxx, orders, input_to_hz=1/60, input_unit='rpm', y_label=None):
     """Returns a figure with suplots of order cuts.
@@ -411,4 +416,41 @@ def _find_nearest(array, value):
     return idx
 
 
+def manually_clean_sig(x, y, fig=None, print_debug=False):
+    
+    def onpick(event, fig, ax, x, y):
+        if isinstance(event.artist, Line2D):
+            ind = event.ind[0]            
+            
+            if print_debug is True:
+                print(f'({x[ind]}, {y[ind]})   |   i={ind}   |   lenx={len(x)}')
+            
+            x.pop(ind)
+            y.pop(ind)
+            
+            fig.clear()
+            manually_clean_sig(x, y, fig=fig)
+            
+    x = list(x)
+    y = list(y)
 
+    if fig is None:
+        fig, ax = plt.subplots()
+        show_new = True
+    else:
+        fig.clear()
+        ax = fig.add_subplot(1,1,1)
+        show_new = False
+
+    ax.plot(x, y, linestyle='-', linewidth='1', marker='.', markersize=5, picker=2)
+    ax.grid()  
+
+    fig.canvas.mpl_connect('pick_event', lambda e : onpick(e, fig, ax, x, y))
+    
+    if show_new is True:
+        plt.show()
+        plt.close(fig)
+    else:
+        plt.draw()
+
+    return x, y
