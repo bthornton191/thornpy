@@ -452,4 +452,4 @@ def manually_clean_sig(x, y, fig=None, print_debug=False):
     else:
         plt.draw()
 
-    return x, y
+    return y

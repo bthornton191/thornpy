@@ -18,7 +18,7 @@ class Test_ManuallyCleanSig(unittest.TestCase):
         x = data['time']
         y = data['stress']
 
-        x, y = manually_clean_sig(x, y, print_debug=True)
+        y = manually_clean_sig(x, y, print_debug=True)
 
         _fig, ax = plt.subplots()
         
