@@ -415,6 +415,39 @@ def _find_nearest(array, value):
     idx = (np.abs(array - value)).argmin()
     return idx
 
+def remove_data_point(x, y, i):
+    """Removes the data point at index `i` and replaces it with a linear interpolation between the neighboring points.
+
+    Parameters
+    ----------
+    x : list
+        X coordinates of data
+    y : list
+        Y coordinates of data
+    i : int
+        Index of data point to remove
+
+    Returns
+    -------
+    list
+        Y coordinates of data with point removed
+        
+    """
+    # Validate data
+    if len(y) < 3:
+        raise ValueError(f'The length of the signal must be greater than 3.  The signal passed has length {len(y)}!')
+
+    if i == 0:
+        # If the first point is passed, extrapolate backwards
+        y[i] = np.interp(x[i], [x[i+1], x[i+2]], [y[i+1], y[i+2]])
+    elif i == len(y):
+        # If the last point is passed, extrapolate forwards
+        y[i] = np.interp(x[i], [x[i-2], x[i-1]], [y[i-2], y[i-1]])
+    else:
+        # If any other point is passed, interpolate
+        y[i] = np.interp(x[i], [x[i-1], x[i+1]], [y[i-1], y[i+1]])
+
+    return y
 
 def manually_clean_sig(x, y, print_debug=False, indices=False, _fig=None):
     """Opens a plot window allowing the user to manually select points to remove from a signal.
@@ -438,7 +471,7 @@ def manually_clean_sig(x, y, print_debug=False, indices=False, _fig=None):
             if print_debug is True:
                 print(f'({x[ind]}, {y[ind]})   |   i={ind}   |   lenx={len(x)}')
             
-            y[ind] = np.interp(x[ind], [x[ind-1], x[ind+1]], [y[ind-1], y[ind+1]])
+            y = remove_data_point(x, y, ind)
             
             # Append the index to the modified indices list
             i_mod.append(ind)
