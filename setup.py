@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="thornpy",
-    version="0.5.10",
+    version="0.5.11",
     author="Ben Thornton",
     author_email="ben.thornton@mscsoftware.com",
     description="Miscellaneous Python Tools",

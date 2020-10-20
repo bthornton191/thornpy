@@ -449,6 +449,71 @@ def remove_data_point(x, y, i):
 
     return y
 
+def manually_clean_sigs(x, y, print_debug=False, indices=False, _fig=None):
+    """Opens a plot window allowing the user to manually select points to remove from a signal.
+
+    Parameters
+    ----------
+    x : list
+        X coordinates of data to clean
+    y : list of lists
+        Y coordinates of data to clean
+    print_debug : bool, optional
+        prints the modified data points, by default False
+    indices : bool, optional
+        If True, returns the modified indices, by default False
+
+    """        
+    def onpick(event, _fig, x, y):
+        if isinstance(event.artist, Line2D) and event.ind[0] not in [0, len(x)-1]:
+            ind = event.ind[0]            
+            
+            if print_debug is True:
+                print(f'x={x[ind]}   |   i={ind}   |   lenx={len(x)}')
+            #     print(f'({x[ind]}, {y[ind]})   |   i={ind}   |   lenx={len(x)}')
+            
+            for each_y in y:
+                each_y = remove_data_point(x, each_y, ind)
+            
+            # Append the index to the modified indices list
+            i_mod.append(ind)
+
+            _fig.clear()
+            manually_clean_sigs(x, y, _fig=_fig)
+    
+    x = list(x)
+    y = [list(vals) for vals in y]
+
+    # Initialize a list of modified indices
+    i_mod = []
+
+    if _fig is None:
+        _fig, ax = plt.subplots()
+        show_new = True
+    else:
+        _fig.clear()
+        ax = _fig.add_subplot(1,1,1)
+        show_new = False
+
+    for each_y in y:
+        ax.plot(x, each_y, linestyle='-', linewidth='1', marker='.', markersize=5, picker=2)
+    
+    _fig.canvas.mpl_connect('pick_event', lambda evt: onpick(evt, _fig, x, y))
+
+    ax.grid()  
+    
+    if show_new is True:
+        plt.show()
+        plt.close(_fig)
+    else:
+        plt.draw()
+
+    if indices is True:
+        return y, i_mod
+    else:
+        return y
+
+
 def manually_clean_sig(x, y, print_debug=False, indices=False, _fig=None):
     """Opens a plot window allowing the user to manually select points to remove from a signal.
 
