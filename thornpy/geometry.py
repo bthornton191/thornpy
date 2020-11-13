@@ -21,13 +21,15 @@ def arc_center(x_0, y_0, x_1, y_1, m_0):
 
     return (x_c, y_c)
 
-def get_arc_points(x_0, y_0, x_1, y_1, x_c, y_c, m_0, pts=10):
+def get_arc_points(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, pts=10):
     start_angle = get_angle_two_points(x_c, y_c, x_0, y_0)
+
+    ang_from_prev = get_angle_two_points(x_c, y_c, x_0, y_0)  - get_angle_two_points(x_c, y_c, x_prev, y_prev) 
 
     delta_angle_1 = get_angle_two_vecs(x_0-x_c, y_0-y_c, x_1-x_c, y_1-y_c)
     delta_angle_2 = -sign(delta_angle_1)*(2*pi-abs(delta_angle_1))
     
-    delta_angle = delta_angle_1 if abs(delta_angle_1) < abs(delta_angle_2) else delta_angle_2
+    delta_angle = delta_angle_1 if sign(delta_angle_1) == sign(ang_from_prev) else delta_angle_2
     
     end_angle = start_angle + delta_angle
     

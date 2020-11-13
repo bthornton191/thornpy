@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="thornpy",
-    version="0.5.12",
+    version="0.5.13",
     author="Ben Thornton",
     author_email="ben.thornton@mscsoftware.com",
     description="Miscellaneous Python Tools",
@@ -18,5 +18,5 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: Microsoft :: Windows",
     ],
-    install_requires = ['scipy', 'numpy', 'pandas', 'seaborn', 'matplotlib', 'opencv-python']
+    install_requires = ['scipy', 'numpy', 'pandas', 'seaborn', 'matplotlib', 'opencv-python', 'sympy']
 )
