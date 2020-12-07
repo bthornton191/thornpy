@@ -1,23 +1,66 @@
 import os
 from pickle import load, dump
 import dill
-from math import atan2, isclose, isnan
-from math import sqrt as msqrt
-from sympy import Symbol, solve, Eq, sqrt, lambdify
-from numpy import linspace, array, float64, cos, sin, sign, pi, inf
+import math
+import sympy as sp
+import numpy as np
 from numpy.linalg import norm
 
 from scipy import optimize
 
 ARCLINE_FILE = os.path.join(os.path.dirname(__file__), 'arcline.pkl')
 ARCARC_FILE = os.path.join(os.path.dirname(__file__), 'arcarc.pkl')
+ARCARC2_FILE = os.path.join(os.path.dirname(__file__), 'arcarc2.pkl')
 
-def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym_sols=None):
+def get_arc_arc_points2(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, end_angle, pts=10):
+
+    tan_end_ang = math.tan(end_angle)
+    start_angle = get_line_ori(x_0, y_0, x_prev, y_prev)
+    x_ca_multi = [x_0 + r_0*np.cos(start_angle + s*np.pi/2) for s in [1, -1]]
+    y_ca_multi = [y_0 + r_0*np.sin(start_angle + s*np.pi/2) for s in [1, -1]]
+
+    # Get center with largest y coordinate
+    i_center = y_ca_multi.index(max(y_ca_multi))
+    x_ca = x_ca_multi[i_center]
+    y_ca = y_ca_multi[i_center]
+      
+    x_cb_sym = sp.Symbol('x_cb_sym', real=True)
+    y_cb_sym = sp.Symbol('y_cb_sym', real=True)
+    x_2_sym = sp.Symbol('x_2_sym', real=True)
+    y_2_sym = sp.Symbol('y_2_sym', real=True)
+    r_b_sym = sp.Symbol('r_b_sym', real=True)
+
+    # Numerically
+    eq_pt2_on_A = sp.Eq((x_2_sym - x_ca)**2 + (y_2_sym - y_ca)**2, r_0**2)
+    eq_pt2_on_B = sp.Eq((x_2_sym - x_cb_sym)**2 + (y_2_sym - y_cb_sym)**2, r_b_sym**2)
+    eq_pt3_on_B = sp.Eq((x_1 - x_cb_sym)**2 + (y_1 - y_cb_sym)**2, r_b_sym**2)
+    eq_tangent_at_2 = sp.Eq((y_ca-y_2_sym) / (x_ca-x_2_sym), (y_2_sym-y_cb_sym) / (x_2_sym-x_cb_sym))
+    eq_slope_at_3 = sp.Eq((x_1-x_cb_sym) / (y_1-y_cb_sym), tan_end_ang)
+
+    init = (float(np.mean([x_0, x_1])), float(np.mean([y_0, y_1])), x_1, float(np.mean([y_0, y_1])), r_0)
+    sols = sp.nsolve((eq_pt2_on_A, eq_pt2_on_B, eq_pt3_on_B, eq_tangent_at_2, eq_slope_at_3), (x_2_sym, y_2_sym, x_cb_sym, y_cb_sym, r_b_sym), init)
+
+    best_sol = _get_best_sol3(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_0, tan_end_ang, sols)
+    x_tan, y_tan, x_cb, y_cb, r_1 = map(float, best_sol)
+    
+    # Figure out how many points in the two arcs (scale by length)
+    arc1_length = r_0 * get_0_to_180(get_3point_ang((x_0, y_0), (x_ca, y_ca), (x_tan, y_tan)))
+    arc2_length = r_1 * get_0_to_180(get_3point_ang((x_tan, y_tan), (x_cb, y_cb), (x_1, y_1)))
+    arc_2_pts = round(pts/(arc1_length/arc2_length + 1))
+    arc_1_pts = pts - arc_2_pts if arc_2_pts < pts else 1
+
+    # Generate the points
+    x_arc_1, y_arc_1 = get_arc_points(x_0, y_0, x_tan, y_tan, x_ca, y_ca, x_prev,      y_prev,      arc_1_pts, direction='cw')
+    x_arc_2, y_arc_2 = get_arc_points(x_tan, y_tan, x_1, y_1, x_cb, y_cb, x_arc_1[-2], y_arc_1[-2], arc_2_pts, direction='ccw')
+
+    return list(x_arc_1) + list(x_arc_2), list(y_arc_1) + list(y_arc_2), x_ca, y_ca, x_tan, y_tan, sym_funcs, start_angle, i_center, x_cb, y_cb, r_1
+
+def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym_funcs=None):
     
     start_angle = get_line_ori(x_0, y_0, x_prev, y_prev)
     
-    x_ca_multi = [x_0 + r_0*cos(start_angle + s*pi/2) for s in [1, -1]]
-    y_ca_multi = [y_0 + r_0*sin(start_angle + s*pi/2) for s in [1, -1]]
+    x_ca_multi = [x_0 + r_0*np.cos(start_angle + s*np.pi/2) for s in [1, -1]]
+    y_ca_multi = [y_0 + r_0*np.sin(start_angle + s*np.pi/2) for s in [1, -1]]
 
     x_ca = None
     y_ca = None
@@ -30,29 +73,29 @@ def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym
             y_ca = y
             i_center = i_ca
     
-    x_ca_sym = Symbol('x_ca_sym', real=True)
-    y_ca_sym = Symbol('y_ca_sym', real=True)    
-    x_cb_sym = Symbol('x_cb_sym', real=True)
-    y_cb_sym = Symbol('y_cb_sym', real=True)
-    x_1_sym = Symbol('x_1_sym', real=True)
-    y_1_sym = Symbol('y_1_sym', real=True)
-    x_2_sym = Symbol('x_2_sym', real=True)
-    y_2_sym = Symbol('y_2_sym', real=True)
-    x_3_sym = Symbol('x_3_sym', real=True)
-    y_3_sym = Symbol('y_3_sym', real=True)
-    r_a_sym = Symbol('r_a_sym', real=True)
-    r_b_sym = Symbol('r_b_sym', real=True)
+    x_ca_sym = sp.Symbol('x_ca_sym', real=True)
+    y_ca_sym = sp.Symbol('y_ca_sym', real=True)    
+    x_cb_sym = sp.Symbol('x_cb_sym', real=True)
+    y_cb_sym = sp.Symbol('y_cb_sym', real=True)
+    x_1_sym = sp.Symbol('x_1_sym', real=True)
+    y_1_sym = sp.Symbol('y_1_sym', real=True)
+    x_2_sym = sp.Symbol('x_2_sym', real=True)
+    y_2_sym = sp.Symbol('y_2_sym', real=True)
+    x_3_sym = sp.Symbol('x_3_sym', real=True)
+    y_3_sym = sp.Symbol('y_3_sym', real=True)
+    r_a_sym = sp.Symbol('r_a_sym', real=True)
+    r_b_sym = sp.Symbol('r_b_sym', real=True)
 
     if sym_sols is None and os.path.exists(ARCARC_FILE) is False:
-        eq_pt2_on_A = Eq((x_2_sym - x_ca_sym)**2 + (y_2_sym - y_ca_sym)**2, r_a_sym**2)
-        eq_pt2_on_B = Eq((x_2_sym - x_cb_sym)**2 + (y_2_sym - y_cb_sym)**2, r_b_sym**2)
-        eq_pt3_on_B = Eq((x_3_sym - x_cb_sym)**2 + (y_3_sym - y_cb_sym)**2, r_b_sym**2)
-        # eq_tangent_at_2 = Eq((y_2_sym - y_ca_sym)/(x_2_sym - x_ca_sym), (y_2_sym - y_cb_sym)/(x_2_sym - x_cb_sym))
-        # eq_tangent_at_2 = Eq((y_2_sym - y_ca_sym)/(x_2_sym - x_ca_sym)*(x_cb_sym-x_ca_sym) + y_ca_sym, y_cb_sym)
-        eq_tangent_at_2 = Eq((x_ca_sym - x_cb_sym)**2 + (y_ca_sym - y_cb_sym)**2, (r_b_sym - r_a_sym)**2)
+        eq_pt2_on_A = sp.Eq((x_2_sym - x_ca_sym)**2 + (y_2_sym - y_ca_sym)**2, r_a_sym**2)
+        eq_pt2_on_B = sp.Eq((x_2_sym - x_cb_sym)**2 + (y_2_sym - y_cb_sym)**2, r_b_sym**2)
+        eq_pt3_on_B = sp.Eq((x_3_sym - x_cb_sym)**2 + (y_3_sym - y_cb_sym)**2, r_b_sym**2)
+        # eq_tangent_at_2 = sp.Eq((y_2_sym - y_ca_sym)/(x_2_sym - x_ca_sym), (y_2_sym - y_cb_sym)/(x_2_sym - x_cb_sym))
+        # eq_tangent_at_2 = sp.Eq((y_2_sym - y_ca_sym)/(x_2_sym - x_ca_sym)*(x_cb_sym-x_ca_sym) + y_ca_sym, y_cb_sym)
+        eq_tangent_at_2 = sp.Eq((x_ca_sym - x_cb_sym)**2 + (y_ca_sym - y_cb_sym)**2, (r_b_sym - r_a_sym)**2)
         
-        partial_sols_1 = solve([eq_pt2_on_A, eq_pt2_on_B], x_2_sym, y_2_sym)
-        partial_sols_2 = solve([eq_pt3_on_B, eq_tangent_at_2], x_cb_sym, y_cb_sym)
+        partial_sols_1 = sp.solve([eq_pt2_on_A, eq_pt2_on_B], x_2_sym, y_2_sym)
+        partial_sols_2 = sp.solve([eq_pt3_on_B, eq_tangent_at_2], x_cb_sym, y_cb_sym)
 
         sym_sols = [[partial_sols_1[idx_sol][idx_var].subs([(x_cb_sym, partial_sols_2[idx_sol][0]), (y_cb_sym, partial_sols_2[idx_sol][1])]) for idx_var in range(2)] + list(partial_sols_2[idx_sol]) for idx_sol in range(2)]
         # sym_sols = [[list(map(lambda s1, v, s2: s1.subs([(v, s2)]), partial_sols_1[idx_sol], [x_cb_sym, y_cb_sym], partial_sols_2[idx_sol])) + partial_sols_2[idx_sol]] for idx_sol in range(2)]
@@ -89,17 +132,16 @@ def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym
     x_arc_1, y_arc_1 = get_arc_points(x_0, y_0, x_tan, y_tan, x_ca, y_ca, x_prev,      y_prev,      arc_1_pts, direction='cw')
     x_arc_2, y_arc_2 = get_arc_points(x_tan, y_tan, x_1, y_1, x_cb, y_cb, x_arc_1[-2], y_arc_1[-2], arc_2_pts, direction='cw')
 
-    return list(x_arc_1) + list(x_arc_2), list(y_arc_1) + list(y_arc_2), x_ca, y_ca, x_tan, y_tan, sym_sols, start_angle, i_center, x_cb, y_cb
+    return list(x_arc_1) + list(x_arc_2), list(y_arc_1) + list(y_arc_2), x_ca, y_ca, x_tan, y_tan, sym_funcs, start_angle, i_center, x_cb, y_cb
 
 def lambdify_and_dump(sols, vbs, fid):
-    pk = [[lambdify(vbs, eq, 'numpy') for eq in sol] for sol in sols]
-    # dump(pk, fid)
+    pk = [[sp.lambdify(vbs, eq, 'numpy') for eq in sol] for sol in sols]
     dill.settings['recurse'] = True
     dill.dump(pk, fid)
     return pk
 
 def subs_lambdify(eq, vbs):
-    f = lambdify([vb[0] for vb in vbs], eq, 'numpy')
+    f = sp.lambdify([vb[0] for vb in vbs], eq, 'numpy')
     ans = f(*[vb[1] for vb in vbs])
     return ans
 
@@ -111,19 +153,19 @@ def drop_zero_imag(sol):
     return sol
 
 def get_0_to_180(ang):
-    if abs(ang) > pi:
-        ang = 2*pi-abs(ang)
+    if abs(ang) > np.pi:
+        ang = 2*np.pi-abs(ang)
     
     return ang
 
 def get_3point_ang(a, b, c):
-    ang = atan2(c[1]-b[1], c[0]-b[0]) - atan2(a[1]-b[1], a[0]-b[0])
+    ang = math.atan2(c[1]-b[1], c[0]-b[0]) - math.atan2(a[1]-b[1], a[0]-b[0])
 
     if ang < 0:
-        ang += 2*pi
+        ang += 2*np.pi
     
-    if ang > pi:
-        ang = 2*pi - ang
+    if ang > np.pi:
+        ang = 2*np.pi - ang
 
     return ang
 
@@ -131,8 +173,8 @@ def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym
     
     start_angle = get_line_ori(x_0, y_0, x_prev, y_prev)
     
-    x_c_multi = [x_0 + r_curve*cos(start_angle + s*pi/2) for s in [1, -1]]
-    y_c_multi = [y_0 + r_curve*sin(start_angle + s*pi/2) for s in [1, -1]]
+    x_c_multi = [x_0 + r_curve*np.cos(start_angle + s*np.pi/2) for s in [1, -1]]
+    y_c_multi = [y_0 + r_curve*np.sin(start_angle + s*np.pi/2) for s in [1, -1]]
 
     x_c = None
     y_c = None
@@ -145,18 +187,18 @@ def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym
             y_c = y
             i_center = i_c
     
-    x = Symbol('x', real=True)
-    y = Symbol('y', real=True)
-    x_c_sym = Symbol('x_c_sym', real=True)
-    y_c_sym = Symbol('y_c_sym', real=True)
-    x_1_sym = Symbol('x_1_sym', real=True)
-    y_1_sym = Symbol('y_1_sym', real=True)
-    r_curve_sym = Symbol('r_curve_sym', real=True)
+    x = sp.Symbol('x', real=True)
+    y = sp.Symbol('y', real=True)
+    x_c_sym = sp.Symbol('x_c_sym', real=True)
+    y_c_sym = sp.Symbol('y_c_sym', real=True)
+    x_1_sym = sp.Symbol('x_1_sym', real=True)
+    y_1_sym = sp.Symbol('y_1_sym', real=True)
+    r_curve_sym = sp.Symbol('r_curve_sym', real=True)
 
     if sym_sols is None and os.path.exists(ARCLINE_FILE) is False:
-        eq_circle = Eq((x - x_c_sym)**2 + (y - y_c_sym)**2, r_curve_sym**2)
-        eq_perp = Eq((y - y_c_sym)/(x - x_c_sym), -(x - x_1_sym)/(y - y_1_sym))
-        sym_sols = solve([eq_circle, eq_perp], x, y)
+        eq_circle = sp.Eq((x - x_c_sym)**2 + (y - y_c_sym)**2, r_curve_sym**2)
+        eq_perp = sp.Eq((y - y_c_sym)/(x - x_c_sym), -(x - x_1_sym)/(y - y_1_sym))
+        sym_sols = sp.solve([eq_circle, eq_perp], x, y)
         
         with open(ARCLINE_FILE, 'wb') as fid:
             dump(sym_sols, fid)
@@ -189,6 +231,10 @@ def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym
 
     return list(x_arc) + list(x_line), list(y_arc) + list(y_line), x_c, y_c, x_tan, y_tan, sym_sols, start_angle, i_center
 
+
+def _get_best_sol3(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_a, tan_end_ang, sols, i_center=1):
+    return [sols[row, 0] for row in range(sols.rows)]
+    
 def _get_best_sol2(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_a, r_b, sols, i_center=1):
     """Gets the solution with the the solution with the shortest arclength
     
@@ -197,15 +243,15 @@ def _get_best_sol2(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_a, r_b, sol
     for i, sol in enumerate(sols):
 
         # Look for NaNs in tan point and center point
-        if any([isnan(v) for v in sol[:2]]) and not any([isnan(v) for v in sol[2:]]):
+        if any([math.isnan(v) for v in sol[:2]]) and not any([math.isnan(v) for v in sol[2:]]):
             # If NaNs found in tangent point but not in center b, find tangent point from center b            
             x_cb, y_cb = map(float, sol[2:])
             sol = (*get_two_circ_tan_point((x_ca, y_ca), r_a, (x_cb, y_cb), r_b), x_cb, y_cb)
             sols[i] = sol
         
-        elif any([isnan(v) for v in sol[2:]]):
+        elif any([math.isnan(v) for v in sol[2:]]):
             # If NaNs found in center point, skip this solution
-            arc_lengths.append(inf)
+            arc_lengths.append(np.inf)
             continue
         
         # try:
@@ -231,9 +277,9 @@ def _get_best_sol(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols, i
     for sol in sols:
         
         # Look for NaNs
-        if any([isnan(v) for v in sol]):
+        if any([math.isnan(v) for v in sol]):
             # If NaNs found, skip this solution
-            angs.append(-inf if i_center==1 else inf)
+            angs.append(-np.inf if i_center==1 else np.inf)
             continue
 
         # try:
@@ -252,7 +298,7 @@ def _get_best_sol(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols, i
     return sols[angs.index(max(angs))] if i_center == 1 else sols[angs.index(min(angs))]
 
 def get_line_points(x_0, y_0, x_1, y_1, pts=10):
-    return linspace(x_0, x_1, pts), linspace(y_0, y_1, pts)
+    return np.linspace(x_0, x_1, pts), np.linspace(y_0, y_1, pts)
 
 def arc_center(x_0, y_0, x_1, y_1, m_0):
     """Returns the x and y coordinates of the center of curvature of an arc given the start and end coordinates, and the slope at the start.
@@ -279,13 +325,13 @@ def arc_center(x_0, y_0, x_1, y_1, m_0):
     a = -m_0
     b = 1
 
-    x = Symbol('x', real=True)
-    y = Symbol('y', real=True)
+    x = sp.Symbol('x', real=True)
+    y = sp.Symbol('y', real=True)
 
-    eq1 = Eq(b*x -a*y - (b*x_0-a*y_0), 0)
-    eq2 = Eq((x_0 - x_1)*x + (y_0 - y_1)*y  -  .5*(x_0**2 + y_0**2 - x_1**2 - y_1**2), 0)
+    eq1 = sp.Eq(b*x -a*y - (b*x_0-a*y_0), 0)
+    eq2 = sp.Eq((x_0 - x_1)*x + (y_0 - y_1)*y  -  .5*(x_0**2 + y_0**2 - x_1**2 - y_1**2), 0)
 
-    sol = solve([eq1, eq2], x, y)        
+    sol = sp.solve([eq1, eq2], x, y)        
     
     x_c = [v for v in sol.values()][0]
     y_c = [v for v in sol.values()][1]
@@ -295,18 +341,18 @@ def arc_center(x_0, y_0, x_1, y_1, m_0):
 # def get_arc_points2(x_0, y_0, radius, x_prev, y_prev, delta_angle, pts=10, flip=1, direction=None):
 
 #     entry_angle = get_line_ori(x_0, y_0, x_prev, y_prev)
-#     ang_to_center = entry_angle + pi/2*flip
+#     ang_to_center = entry_angle + np.pi/2*flip
 
-#     x_c = x_0 + radius*cos(ang_to_center)
-#     y_c = y_0 + radius*sin(ang_to_center)
+#     x_c = x_0 + radius*np.cos(ang_to_center)
+#     y_c = y_0 + radius*np.sin(ang_to_center)
 
 #     ang_from_prev = get_line_ori(x_c, y_c, x_0, y_0)  - get_line_ori(x_c, y_c, x_prev, y_prev) 
     
 #     delta_angle_1 = delta_angle
-#     delta_angle_2 = -sign(delta_angle)*(2*pi-abs(delta_angle))
+#     delta_angle_2 = -np.sign(delta_angle)*(2*np.pi-abs(delta_angle))
     
 #     if direction is None:
-#         delta_angle = delta_angle_1 if sign(delta_angle_1) == sign(ang_from_prev) else delta_angle_2
+#         delta_angle = delta_angle_1 if np.sign(delta_angle_1) == np.sign(ang_from_prev) else delta_angle_2
 #     elif direction == 'ccw':
 #         delta_angle = delta_angle_1 if delta_angle_1 > 0 else delta_angle_2
 #     elif direction == 'cw':
@@ -314,10 +360,10 @@ def arc_center(x_0, y_0, x_1, y_1, m_0):
 
 #     end_angle = start_angle + delta_angle
     
-#     angles = linspace(start_angle, end_angle, pts)   
+#     angles = np.linspace(start_angle, end_angle, pts)   
 
-#     x = list([x_c + radius*cos(angle) for angle in angles])
-#     y = list([y_c + radius*sin(angle) for angle in angles])
+#     x = list([x_c + radius*np.cos(angle) for angle in angles])
+#     y = list([y_c + radius*np.sin(angle) for angle in angles])
 
 #     return x, y
 
@@ -359,10 +405,10 @@ def get_arc_points(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, pts=10, directi
     
     # delta_angle_1 = get_3point_ang((x_0, y_0), (x_c, y_c), (x_1, y_1))    
     delta_angle_1 = get_line_ori(x_c, y_c, x_1, y_1)  - get_line_ori(x_c, y_c, x_0, y_0) 
-    delta_angle_2 = -sign(delta_angle_1)*(2*pi-abs(delta_angle_1))
+    delta_angle_2 = -np.sign(delta_angle_1)*(2*np.pi-abs(delta_angle_1))
     
     if direction is None:
-        delta_angle = delta_angle_1 if sign(delta_angle_1) == sign(ang_from_prev) else delta_angle_2
+        delta_angle = delta_angle_1 if np.sign(delta_angle_1) == np.sign(ang_from_prev) else delta_angle_2
     elif direction == 'ccw':
         delta_angle = delta_angle_1 if delta_angle_1 > 0 else delta_angle_2
     elif direction == 'cw':
@@ -370,11 +416,11 @@ def get_arc_points(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, pts=10, directi
 
     end_angle = start_angle + delta_angle
     
-    angles = linspace(start_angle, end_angle, pts)   
-    radius = norm(array([x_0-x_c, y_0-y_c]).astype(float64))
+    angles = np.linspace(start_angle, end_angle, pts)   
+    radius = norm(np.array([x_0-x_c, y_0-y_c]).astype(np.float64))
 
-    x = list([x_c + radius*cos(angle) for angle in angles])
-    y = list([y_c + radius*sin(angle) for angle in angles])
+    x = list([x_c + radius*np.cos(angle) for angle in angles])
+    y = list([y_c + radius*np.sin(angle) for angle in angles])
 
     return x, y
 
@@ -408,7 +454,7 @@ def get_line_ori(x_0, y_0, x_1, y_1):
 
     """
     
-    return atan2(y_1-y_0, x_1-x_0)
+    return math.atan2(y_1-y_0, x_1-x_0)
 
 def get_angle_two_vecs(x_0, y_0, x_1, y_1):
     """Returns the orientation between the two vectors defined from the origin to the two given points in 2D space.
