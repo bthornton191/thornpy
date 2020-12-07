@@ -171,7 +171,7 @@ def get_3point_ang(a, b, c):
 
     return ang
 
-def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym_sols=None):
+def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym_sols=None, numerical=False):
     
     start_angle = get_line_ori(x_0, y_0, x_prev, y_prev)
     
@@ -197,29 +197,36 @@ def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym
     y_1_sym = sp.Symbol('y_1_sym', real=True)
     r_curve_sym = sp.Symbol('r_curve_sym', real=True)
 
-    if sym_sols is None and os.path.exists(ARCLINE_FILE) is False:
-        eq_circle = sp.Eq((x - x_c_sym)**2 + (y - y_c_sym)**2, r_curve_sym**2)
-        eq_perp = sp.Eq((y - y_c_sym)/(x - x_c_sym), -(x - x_1_sym)/(y - y_1_sym))
-        sym_sols = sp.solve([eq_circle, eq_perp], x, y)
+    if numerical is False:
+        if sym_sols is None and os.path.exists(ARCLINE_FILE) is False:
+            eq_circle = sp.Eq((x - x_c_sym)**2 + (y - y_c_sym)**2, r_curve_sym**2)
+            eq_perp = sp.Eq((y - y_c_sym)/(x - x_c_sym), -(x - x_1_sym)/(y - y_1_sym))
+            sym_sols = sp.solve([eq_circle, eq_perp], x, y)
+            
+            with open(ARCLINE_FILE, 'wb') as fid:
+                dump(sym_sols, fid)
+
+        elif os.path.exists(ARCLINE_FILE) is True:
+            with open(ARCLINE_FILE, 'rb') as fid:
+                sym_sols = load(fid)
+
+        # Substitute for symbols in the symbolic solution
+        sols = [tuple([eq.subs([(x_c_sym, x_c), (y_c_sym, y_c), (x_1_sym, x_1), (y_1_sym, y_1), (r_curve_sym, r_curve)]) for eq in sym_sol]) for sym_sol in sym_sols]
+
+    else:
         
-        with open(ARCLINE_FILE, 'wb') as fid:
-            dump(sym_sols, fid)
+        eq_circle = sp.Eq((x - x_c)**2 + (y - y_c)**2, r_curve**2)
+        eq_perp = sp.Eq((y - y_c)/(x - x_c), -(x - x_1)/(y - y_1))
 
-    elif os.path.exists(ARCLINE_FILE) is True:
-        with open(ARCLINE_FILE, 'rb') as fid:
-            sym_sols = load(fid)
-
-    # Substitute for symbols in the symbolic solution
-    sols = [tuple([eq.subs([(x_c_sym, x_c), (y_c_sym, y_c), (x_1_sym, x_1), (y_1_sym, y_1), (r_curve_sym, r_curve)]) for eq in sym_sol]) for sym_sol in sym_sols]
+        init = (float(np.mean([x_0, x_1])), float(np.mean([y_0, y_1])))
+        sols = sp.nsolve((eq_circle, eq_perp), (x, y), init, verify=False)
+        sols = [[sols[row, col] for row in range(sols.rows)] for col in range(sols.cols)]
 
     # Get the best solution  
     best_sol = _get_best_sol(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols)
 
-    # try:
     x_tan = float(best_sol[0])
     y_tan = float(best_sol[1])
-    # except TypeError:
-    #     raise TypeError(type(best_sol[0]))
     
     # Figure out how many points in the arc and line (scale by length)
     arc_length = r_curve * get_3point_ang((x_0, y_0), (x_c, y_c), (x_tan, y_tan))
