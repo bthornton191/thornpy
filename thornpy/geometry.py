@@ -53,7 +53,7 @@ def get_arc_arc_points2(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, end_angle, pts=
     x_arc_1, y_arc_1 = get_arc_points(x_0, y_0, x_tan, y_tan, x_ca, y_ca, x_prev,      y_prev,      arc_1_pts, direction='cw')
     x_arc_2, y_arc_2 = get_arc_points(x_tan, y_tan, x_1, y_1, x_cb, y_cb, x_arc_1[-2], y_arc_1[-2], arc_2_pts, direction='ccw')
 
-    return list(x_arc_1) + list(x_arc_2), list(y_arc_1) + list(y_arc_2), x_ca, y_ca, x_tan, y_tan, sym_funcs, start_angle, i_center, x_cb, y_cb, r_1
+    return list(x_arc_1) + list(x_arc_2), list(y_arc_1) + list(y_arc_2), x_ca, y_ca, x_tan, y_tan, start_angle, i_center, x_cb, y_cb, r_1
 
 def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym_funcs=None):
     

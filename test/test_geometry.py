@@ -19,7 +19,7 @@ class Test_GetArcArcPoints2(unittest.TestCase):
         r_0 = 29
         end_angle = 0.02
 
-        x_arc, y_arc, x_ca, y_ca, x_tan, y_tan, sym_funcs, start_angle, i_center, x_cb, y_cb, r_b = geometry.get_arc_arc_points2(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, end_angle)
+        x_arc, y_arc, x_ca, y_ca, x_tan, y_tan, start_angle, i_center, x_cb, y_cb, r_b = geometry.get_arc_arc_points2(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, end_angle)
 
         plt.plot(x_arc, y_arc)
         plt.scatter(x_tan, y_tan, c='g')
