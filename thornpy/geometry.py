@@ -38,7 +38,7 @@ def get_arc_arc_points2(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, end_angle, pts=
     eq_slope_at_3 = sp.Eq((x_1-x_cb_sym) / (y_1-y_cb_sym), tan_end_ang)
 
     init = (float(np.mean([x_0, x_1])), float(np.mean([y_0, y_1])), x_1, float(np.mean([y_0, y_1])), r_0)
-    sols = sp.nsolve((eq_pt2_on_A, eq_pt2_on_B, eq_pt3_on_B, eq_tangent_at_2, eq_slope_at_3), (x_2_sym, y_2_sym, x_cb_sym, y_cb_sym, r_b_sym), init)
+    sols = sp.nsolve((eq_pt2_on_A, eq_pt2_on_B, eq_pt3_on_B, eq_tangent_at_2, eq_slope_at_3), (x_2_sym, y_2_sym, x_cb_sym, y_cb_sym, r_b_sym), init, verify=False)
 
     best_sol = _get_best_sol3(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_0, tan_end_ang, sols)
     x_tan, y_tan, x_cb, y_cb, r_1 = map(float, best_sol)
@@ -55,7 +55,7 @@ def get_arc_arc_points2(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, end_angle, pts=
 
     return list(x_arc_1) + list(x_arc_2), list(y_arc_1) + list(y_arc_2), x_ca, y_ca, x_tan, y_tan, start_angle, i_center, x_cb, y_cb, r_1
 
-def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym_funcs=None):
+def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym_funcs=None, numerical=False):
     
     start_angle = get_line_ori(x_0, y_0, x_prev, y_prev)
     
@@ -86,41 +86,43 @@ def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym
     r_a_sym = sp.Symbol('r_a_sym', real=True)
     r_b_sym = sp.Symbol('r_b_sym', real=True)
 
-    if sym_sols is None and os.path.exists(ARCARC_FILE) is False:
-        eq_pt2_on_A = sp.Eq((x_2_sym - x_ca_sym)**2 + (y_2_sym - y_ca_sym)**2, r_a_sym**2)
-        eq_pt2_on_B = sp.Eq((x_2_sym - x_cb_sym)**2 + (y_2_sym - y_cb_sym)**2, r_b_sym**2)
-        eq_pt3_on_B = sp.Eq((x_3_sym - x_cb_sym)**2 + (y_3_sym - y_cb_sym)**2, r_b_sym**2)
-        # eq_tangent_at_2 = sp.Eq((y_2_sym - y_ca_sym)/(x_2_sym - x_ca_sym), (y_2_sym - y_cb_sym)/(x_2_sym - x_cb_sym))
-        # eq_tangent_at_2 = sp.Eq((y_2_sym - y_ca_sym)/(x_2_sym - x_ca_sym)*(x_cb_sym-x_ca_sym) + y_ca_sym, y_cb_sym)
-        eq_tangent_at_2 = sp.Eq((x_ca_sym - x_cb_sym)**2 + (y_ca_sym - y_cb_sym)**2, (r_b_sym - r_a_sym)**2)
+    if numerical is False:
+        if sym_funcs is None and os.path.exists(ARCARC_FILE) is False:
+            eq_pt2_on_A = sp.Eq((x_2_sym - x_ca_sym)**2 + (y_2_sym - y_ca_sym)**2, r_a_sym**2)
+            eq_pt2_on_B = sp.Eq((x_2_sym - x_cb_sym)**2 + (y_2_sym - y_cb_sym)**2, r_b_sym**2)
+            eq_pt3_on_B = sp.Eq((x_3_sym - x_cb_sym)**2 + (y_3_sym - y_cb_sym)**2, r_b_sym**2)
+            eq_tangent_at_2 = sp.Eq((x_ca_sym - x_cb_sym)**2 + (y_ca_sym - y_cb_sym)**2, (r_b_sym - r_a_sym)**2)
+            
+            partial_sols_1 = sp.solve([eq_pt2_on_A, eq_pt2_on_B], x_2_sym, y_2_sym)
+            partial_sols_2 = sp.solve([eq_pt3_on_B, eq_tangent_at_2], x_cb_sym, y_cb_sym)
+
+            sym_sols = [[partial_sols_1[idx_sol][idx_var].subs([(x_cb_sym, partial_sols_2[idx_sol][0]), (y_cb_sym, partial_sols_2[idx_sol][1])]) for idx_var in range(2)] + list(partial_sols_2[idx_sol]) for idx_sol in range(2)]
+
+            with open(ARCARC_FILE, 'wb') as fid:
+                # dump(sym_sols, fid)
+                sym_funcs = lambdify_and_dump(sym_sols, [x_ca_sym, y_ca_sym, x_1_sym, y_1_sym, x_3_sym, y_3_sym, r_a_sym, r_b_sym], fid)
+
+        elif os.path.exists(ARCARC_FILE) is True:
+            with open(ARCARC_FILE, 'rb') as fid:
+                # sym_sols = load(fid)
+                sym_funcs = load(fid)
+
+        # Substitute for symbols in the symbolic solution
+        sols = [tuple([f(x_ca, y_ca, x_0, y_0, x_1, y_1, r_0, r_1) for f in sym_func]) for sym_func in sym_funcs]
         
-        partial_sols_1 = sp.solve([eq_pt2_on_A, eq_pt2_on_B], x_2_sym, y_2_sym)
-        partial_sols_2 = sp.solve([eq_pt3_on_B, eq_tangent_at_2], x_cb_sym, y_cb_sym)
+    else:
+        eq_pt2_on_A = sp.Eq((x_2_sym - x_ca)**2 + (y_2_sym - y_ca)**2, r_0**2)
+        eq_pt2_on_B = sp.Eq((x_2_sym - x_cb_sym)**2 + (y_2_sym - y_cb_sym)**2, r_1**2)
+        eq_pt3_on_B = sp.Eq((x_1 - x_cb_sym)**2 + (y_1 - y_cb_sym)**2, r_1**2)
+        eq_tangent_at_2 = sp.Eq((x_ca - x_cb_sym)**2 + (y_ca - y_cb_sym)**2, (r_1 - r_0)**2)
 
-        sym_sols = [[partial_sols_1[idx_sol][idx_var].subs([(x_cb_sym, partial_sols_2[idx_sol][0]), (y_cb_sym, partial_sols_2[idx_sol][1])]) for idx_var in range(2)] + list(partial_sols_2[idx_sol]) for idx_sol in range(2)]
-        # sym_sols = [[list(map(lambda s1, v, s2: s1.subs([(v, s2)]), partial_sols_1[idx_sol], [x_cb_sym, y_cb_sym], partial_sols_2[idx_sol])) + partial_sols_2[idx_sol]] for idx_sol in range(2)]
-
-        with open(ARCARC_FILE, 'wb') as fid:
-            # dump(sym_sols, fid)
-            sym_funcs = lambdify_and_dump(sym_sols, [x_ca_sym, y_ca_sym, x_1_sym, y_1_sym, x_3_sym, y_3_sym, r_a_sym, r_b_sym], fid)
-
-    elif os.path.exists(ARCARC_FILE) is True:
-        with open(ARCARC_FILE, 'rb') as fid:
-            # sym_sols = load(fid)
-            sym_funcs = load(fid)
-
-    # Substitute for symbols in the symbolic solution
-    # sols = [tuple([eq.subs([(x_ca_sym, x_ca), (y_ca_sym, y_ca), (x_1_sym, x_0), (y_1_sym, y_0), (x_3_sym, x_1), (y_3_sym, y_1), (r_a_sym, r_0), (r_b_sym, r_1)]).n(chop=1e-2) for eq in sym_sol]) for sym_sol in sym_sols]
-    # sols = [tuple([subs_lambdify(eq, [(x_ca_sym, x_ca), (y_ca_sym, y_ca), (x_1_sym, x_0), (y_1_sym, y_0), (x_3_sym, x_1), (y_3_sym, y_1), (r_a_sym, r_0), (r_b_sym, r_1)]) for eq in sym_sol]) for sym_sol in sym_sols]
-    sols = [tuple([f(x_ca, y_ca, x_0, y_0, x_1, y_1, r_0, r_1) for f in sym_func]) for sym_func in sym_funcs]
+        init = (float(np.mean([x_0, x_1])), float(np.mean([y_0, y_1])), x_1, float(np.mean([y_0, y_1])))
+        sols = sp.nsolve((eq_pt2_on_A, eq_pt2_on_B, eq_pt3_on_B, eq_tangent_at_2), (x_2_sym, y_2_sym, x_cb_sym, y_cb_sym), init, verify=False)
+        sols = [[sols[row, col] for row in range(sols.rows)] for col in range(sols.cols)]
 
     # Get the best solution  
-    best_sol = _get_best_sol2(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_0, r_1, sols)
-    
-    # try:
+    best_sol = _get_best_sol2(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_0, r_1, sols)    
     x_tan, y_tan, x_cb, y_cb = map(float, best_sol)
-    # except TypeError:
-    #     raise TypeError(type(best_sol[0]))
     
     # Figure out how many points in the two arcs (scale by length)
     arc1_length = r_0 * get_0_to_180(get_3point_ang((x_0, y_0), (x_ca, y_ca), (x_tan, y_tan)))
