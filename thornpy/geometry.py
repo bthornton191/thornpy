@@ -1,10 +1,13 @@
 import os
 from pickle import load, dump
-from math import atan2, isclose
+import dill
+from math import atan2, isclose, isnan
 from math import sqrt as msqrt
-from sympy import Symbol, solve, Eq, sqrt
-from numpy import linspace, array, float64, cos, sin, sign, pi
+from sympy import Symbol, solve, Eq, sqrt, lambdify
+from numpy import linspace, array, float64, cos, sin, sign, pi, inf
 from numpy.linalg import norm
+
+from scipy import optimize
 
 ARCLINE_FILE = os.path.join(os.path.dirname(__file__), 'arcline.pkl')
 ARCARC_FILE = os.path.join(os.path.dirname(__file__), 'arcarc.pkl')
@@ -55,22 +58,26 @@ def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym
         # sym_sols = [[list(map(lambda s1, v, s2: s1.subs([(v, s2)]), partial_sols_1[idx_sol], [x_cb_sym, y_cb_sym], partial_sols_2[idx_sol])) + partial_sols_2[idx_sol]] for idx_sol in range(2)]
 
         with open(ARCARC_FILE, 'wb') as fid:
-            dump(sym_sols, fid)
+            # dump(sym_sols, fid)
+            sym_funcs = lambdify_and_dump(sym_sols, [x_ca_sym, y_ca_sym, x_1_sym, y_1_sym, x_3_sym, y_3_sym, r_a_sym, r_b_sym], fid)
 
     elif os.path.exists(ARCARC_FILE) is True:
         with open(ARCARC_FILE, 'rb') as fid:
-            sym_sols = load(fid)
+            # sym_sols = load(fid)
+            sym_funcs = load(fid)
 
     # Substitute for symbols in the symbolic solution
-    sols = [tuple([eq.subs([(x_ca_sym, x_ca), (y_ca_sym, y_ca), (x_1_sym, x_0), (y_1_sym, y_0), (x_3_sym, x_1), (y_3_sym, y_1), (r_a_sym, r_0), (r_b_sym, r_1)]).n(chop=1e-2) for eq in sym_sol]) for sym_sol in sym_sols]
+    # sols = [tuple([eq.subs([(x_ca_sym, x_ca), (y_ca_sym, y_ca), (x_1_sym, x_0), (y_1_sym, y_0), (x_3_sym, x_1), (y_3_sym, y_1), (r_a_sym, r_0), (r_b_sym, r_1)]).n(chop=1e-2) for eq in sym_sol]) for sym_sol in sym_sols]
+    # sols = [tuple([subs_lambdify(eq, [(x_ca_sym, x_ca), (y_ca_sym, y_ca), (x_1_sym, x_0), (y_1_sym, y_0), (x_3_sym, x_1), (y_3_sym, y_1), (r_a_sym, r_0), (r_b_sym, r_1)]) for eq in sym_sol]) for sym_sol in sym_sols]
+    sols = [tuple([f(x_ca, y_ca, x_0, y_0, x_1, y_1, r_0, r_1) for f in sym_func]) for sym_func in sym_funcs]
 
     # Get the best solution  
-    best_sol = _get_best_sol(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_0, sols)
-
-    try:
-        x_tan, y_tan, x_cb, y_cb = map(float, best_sol)
-    except TypeError:
-        raise TypeError('type is {} on line 73'.format(type(best_sol[0])))
+    best_sol = _get_best_sol2(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_0, r_1, sols)
+    
+    # try:
+    x_tan, y_tan, x_cb, y_cb = map(float, best_sol)
+    # except TypeError:
+    #     raise TypeError(type(best_sol[0]))
     
     # Figure out how many points in the two arcs (scale by length)
     arc1_length = r_0 * get_0_to_180(get_3point_ang((x_0, y_0), (x_ca, y_ca), (x_tan, y_tan)))
@@ -83,6 +90,25 @@ def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym
     x_arc_2, y_arc_2 = get_arc_points(x_tan, y_tan, x_1, y_1, x_cb, y_cb, x_arc_1[-2], y_arc_1[-2], arc_2_pts, direction='cw')
 
     return list(x_arc_1) + list(x_arc_2), list(y_arc_1) + list(y_arc_2), x_ca, y_ca, x_tan, y_tan, sym_sols, start_angle, i_center, x_cb, y_cb
+
+def lambdify_and_dump(sols, vbs, fid):
+    pk = [[lambdify(vbs, eq, 'numpy') for eq in sol] for sol in sols]
+    # dump(pk, fid)
+    dill.settings['recurse'] = True
+    dill.dump(pk, fid)
+    return pk
+
+def subs_lambdify(eq, vbs):
+    f = lambdify([vb[0] for vb in vbs], eq, 'numpy')
+    ans = f(*[vb[1] for vb in vbs])
+    return ans
+
+def drop_zero_imag(sol):
+    for i, eq in enumerate(sol):
+        if eq.is_Add is True:
+            sol[i] = eq.as_real_imag()[0]
+
+    return sol
 
 def get_0_to_180(ang):
     if abs(ang) > pi:
@@ -145,11 +171,11 @@ def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym
     # Get the best solution  
     best_sol = _get_best_sol(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols)
 
-    try:
-        x_tan = float(best_sol[0])
-        y_tan = float(best_sol[1])
-    except TypeError:
-        raise TypeError('type is {} on line 152'.format(type(best_sol[0])))
+    # try:
+    x_tan = float(best_sol[0])
+    y_tan = float(best_sol[1])
+    # except TypeError:
+    #     raise TypeError(type(best_sol[0]))
     
     # Figure out how many points in the arc and line (scale by length)
     arc_length = r_curve * get_3point_ang((x_0, y_0), (x_c, y_c), (x_tan, y_tan))
@@ -163,17 +189,58 @@ def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym
 
     return list(x_arc) + list(x_line), list(y_arc) + list(y_line), x_c, y_c, x_tan, y_tan, sym_sols, start_angle, i_center
 
+def _get_best_sol2(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_a, r_b, sols, i_center=1):
+    """Gets the solution with the the solution with the shortest arclength
+    
+    """
+    arc_lengths = []
+    for i, sol in enumerate(sols):
+
+        # Look for NaNs in tan point and center point
+        if any([isnan(v) for v in sol[:2]]) and not any([isnan(v) for v in sol[2:]]):
+            # If NaNs found in tangent point but not in center b, find tangent point from center b            
+            x_cb, y_cb = map(float, sol[2:])
+            sol = (*get_two_circ_tan_point((x_ca, y_ca), r_a, (x_cb, y_cb), r_b), x_cb, y_cb)
+            sols[i] = sol
+        
+        elif any([isnan(v) for v in sol[2:]]):
+            # If NaNs found in center point, skip this solution
+            arc_lengths.append(inf)
+            continue
+        
+        # try:
+        x_tan, y_tan, x_cb, y_cb = map(float, sol)
+        # except TypeError:
+        #     continue
+
+        x_arc_a, y_arc_a = get_arc_points(x_0, y_0, x_tan, y_tan, x_ca, y_ca, x_prev, y_prev)
+        x_arc_b, y_arc_b = get_arc_points(x_tan, y_tan, x_1, y_1, x_cb, y_cb, x_arc_a[-2], y_arc_a[-2])
+
+        arc_length_a = sum([norm([x1-x0, y1-y0]) for (x0, x1, y0, y1) in zip(x_arc_a[:-1], x_arc_a[1:], y_arc_a[:-1], y_arc_a[1:])])
+        arc_length_b = sum([norm([x1-x0, y1-y0]) for (x0, x1, y0, y1) in zip(x_arc_b[:-1], x_arc_b[1:], y_arc_b[:-1], y_arc_b[1:])])
+
+        arc_lengths.append(sum([arc_length_a, arc_length_b]))
+        
+    return sols[arc_lengths.index(min(arc_lengths))]
+
 def _get_best_sol(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols, i_center=1):
     """Gets the solution with the the solution with maximum or minimum subtended angle.
     
     """
     angs = []
     for sol in sols:
-        try:
-            x_tan = float(sol[0])
-            y_tan = float(sol[1])
-        except TypeError:
+        
+        # Look for NaNs
+        if any([isnan(v) for v in sol]):
+            # If NaNs found, skip this solution
+            angs.append(-inf if i_center==1 else inf)
             continue
+
+        # try:
+        x_tan = float(sol[0])
+        y_tan = float(sol[1])
+        # except TypeError:
+        #     continue
 
         x_arc, y_arc = get_arc_points(x_0, y_0, x_tan, y_tan, x_c, y_c, x_prev, y_prev, 100)
 
@@ -310,6 +377,15 @@ def get_arc_points(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, pts=10, directi
     y = list([y_c + radius*sin(angle) for angle in angles])
 
     return x, y
+
+def get_two_circ_tan_point(loc_ca, r_a, loc_cb, r_b):
+    def error(loc):
+        err_a = abs(norm([loc[0] - loc_ca[0], loc[1] - loc_ca[1]]) - r_a)
+        err_b = abs(norm([loc[0] - loc_cb[0], loc[1] - loc_cb[1]]) - r_b)
+        return max([err_a, err_b])
+    
+    res = optimize.minimize(error, [-10, 10], method='Nelder-Mead')
+    return tuple(res.x)
 
 def get_line_ori(x_0, y_0, x_1, y_1):
     """Returns the orientation of a vector defined by two points in 2D space.
