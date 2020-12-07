@@ -12,3 +12,4 @@ __pycache__/
 /env
 /demo.py
 geometry.ipynb
+thornpy/arcarc.pkl

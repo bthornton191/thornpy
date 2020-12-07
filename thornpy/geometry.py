@@ -62,7 +62,7 @@ def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym
             sym_sols = load(fid)
 
     # Substitute for symbols in the symbolic solution
-    sols = [tuple([eq.subs([(x_ca_sym, x_ca), (y_ca_sym, y_ca), (x_1_sym, x_0), (y_1_sym, y_0), (x_3_sym, x_1), (y_3_sym, y_1), (r_a_sym, r_0), (r_b_sym, r_1)]) for eq in sym_sol]) for sym_sol in sym_sols]
+    sols = [tuple([eq.subs([(x_ca_sym, x_ca), (y_ca_sym, y_ca), (x_1_sym, x_0), (y_1_sym, y_0), (x_3_sym, x_1), (y_3_sym, y_1), (r_a_sym, r_0), (r_b_sym, r_1)]).n(chop=1e-2) for eq in sym_sol]) for sym_sol in sym_sols]
 
     # Get the best solution  
     best_sol = _get_best_sol(x_0, y_0, x_1, y_1, x_ca, y_ca, x_prev, y_prev, r_0, sols)
@@ -70,7 +70,7 @@ def get_arc_arc_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_0, r_1, pts=10, sym
     try:
         x_tan, y_tan, x_cb, y_cb = map(float, best_sol)
     except TypeError:
-        raise TypeError(type(best_sol[0]))
+        raise TypeError('type is {} on line 73'.format(type(best_sol[0])))
     
     # Figure out how many points in the two arcs (scale by length)
     arc1_length = r_0 * get_0_to_180(get_3point_ang((x_0, y_0), (x_ca, y_ca), (x_tan, y_tan)))
@@ -149,7 +149,7 @@ def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym
         x_tan = float(best_sol[0])
         y_tan = float(best_sol[1])
     except TypeError:
-        raise TypeError(type(best_sol[0]))
+        raise TypeError('type is {} on line 152'.format(type(best_sol[0])))
     
     # Figure out how many points in the arc and line (scale by length)
     arc_length = r_curve * get_3point_ang((x_0, y_0), (x_c, y_c), (x_tan, y_tan))
