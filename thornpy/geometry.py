@@ -218,15 +218,15 @@ def get_arc_line_points(x_0, y_0, x_1, y_1, x_prev, y_prev, r_curve, pts=10, sym
         eq_circle = sp.Eq((x - x_c)**2 + (y - y_c)**2, r_curve**2)
         eq_perp = sp.Eq((y - y_c)/(x - x_c), -(x - x_1)/(y - y_1))
 
-        init = (float(np.mean([x_0, x_1])), float(np.mean([y_0, y_1])))
+        init = (50, 150)
         sols = sp.nsolve((eq_circle, eq_perp), (x, y), init, verify=False)
         sols = [[sols[row, col] for row in range(sols.rows)] for col in range(sols.cols)]
 
     # Get the best solution  
-    best_sol = _get_best_sol(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols)
+    best_sol = _get_best_sol4(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols)
 
-    x_tan = float(best_sol[0])
-    y_tan = float(best_sol[1])
+    x_tan = float(sp.re(best_sol[0]))
+    y_tan = float(sp.re(best_sol[1]))
     
     # Figure out how many points in the arc and line (scale by length)
     arc_length = r_curve * get_3point_ang((x_0, y_0), (x_c, y_c), (x_tan, y_tan))
@@ -288,7 +288,7 @@ def _get_best_sol(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols, i
         # Look for NaNs
         if any([math.isnan(v) for v in sol]):
             # If NaNs found, skip this solution
-            angs.append(-np.inf if i_center==1 else np.inf)
+            angs.append(np.inf if i_center==1 else -np.inf)
             continue
 
         # try:
@@ -304,7 +304,31 @@ def _get_best_sol(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols, i
 
         angs.append(min([start_ang, end_ang]))
         
-    return sols[angs.index(max(angs))] if i_center == 1 else sols[angs.index(min(angs))]
+    return sols[angs.index(min(angs))] if i_center == 1 else sols[angs.index(max(angs))]
+
+def _get_best_sol4(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols, i_center=1):
+    """Gets the solution with the the solution with maximum or minimum subtended angle.
+    
+    """
+    arc_lengths = []
+    for sol in sols:
+        
+        # Look for NaNs
+        if any([math.isnan(sp.re(v)) for v in sol]):
+            # If NaNs found, skip this solution
+            arc_lengths.append(np.inf)
+            continue
+
+        x_tan = float(sp.re(sol[0]))
+        y_tan = float(sp.re(sol[1]))
+
+        # arc_length = r_curve * get_3point_ang((x_0, y_0), (x_c, y_c), (x_tan, y_tan))
+        arc_length = r_curve * (get_angle_two_vecs(x_0-x_c, y_0-y_c, x_tan-x_c, y_tan-y_c))
+        line_length = norm([x_1 - x_tan, y_1 - y_tan])
+
+        arc_lengths.append(arc_length + line_length)
+        
+    return sols[arc_lengths.index(min(arc_lengths))]
 
 def get_line_points(x_0, y_0, x_1, y_1, pts=10):
     return np.linspace(x_0, x_1, pts), np.linspace(y_0, y_1, pts)
