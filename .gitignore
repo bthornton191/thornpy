@@ -11,5 +11,5 @@ __pycache__/
 .vscode/
 /env
 /demo.py
-geometry.ipynb
 thornpy/arcarc.pkl
+**.ipynb
