@@ -160,6 +160,11 @@ def get_0_to_180(ang):
     
     return ang
 
+def get_0_to_360(ang):
+    if ang < 0:
+        ang = 2*np.pi + ang
+    return ang
+
 def get_3point_ang(a, b, c):
     ang = math.atan2(c[1]-b[1], c[0]-b[0]) - math.atan2(a[1]-b[1], a[0]-b[0])
 
@@ -323,7 +328,7 @@ def _get_best_sol4(x_0, y_0, x_1, y_1, x_c, y_c, x_prev, y_prev, r_curve, sols, 
         y_tan = float(sp.re(sol[1]))
 
         # arc_length = r_curve * get_3point_ang((x_0, y_0), (x_c, y_c), (x_tan, y_tan))
-        arc_length = r_curve * (get_angle_two_vecs(x_0-x_c, y_0-y_c, x_tan-x_c, y_tan-y_c))
+        arc_length = r_curve * get_0_to_360(get_angle_two_vecs(x_0-x_c, y_0-y_c, x_tan-x_c, y_tan-y_c))
         line_length = norm([x_1 - x_tan, y_1 - y_tan])
 
         arc_lengths.append(arc_length + line_length)

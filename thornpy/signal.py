@@ -7,7 +7,7 @@ from matplotlib import cm
 from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
 import numpy as np
-
+import pandas as pd
 
 
 def low_pass(sig, time, freq_cutoff, N=5):
@@ -32,7 +32,7 @@ def low_pass(sig, time, freq_cutoff, N=5):
         Time signal associated with filtered signal
 
     """
-    freq_samp = 1/(time[1]-time[0])
+    freq_samp = (len(time)-1)/(time[-1]-time[0])
     omega = freq_cutoff/freq_samp*2
     b_coef, a_coef = butter(N, omega)
     return list(filtfilt(b_coef, a_coef, sig)), time
@@ -573,3 +573,91 @@ def manually_clean_sig(x, y, print_debug=False, indices=False, _fig=None):
         return y, i_mod
     else:
         return y
+
+def resample_dataframe(df: pd.DataFrame, resample_time: int, time_column='index', time_unit='s', datetime_column=None) -> pd.DataFrame:
+    """Resamples `df` using sample time `resample_time` in microseconds.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to resample
+    resample_time : int
+        Resample time in microseconds
+    time_column : str, optional
+        Name of time column, by default 'index'
+    time_unit : str, optional
+        Unit of time colujmn, by default 's'
+    datetime_column : str, optional
+        Name of datetime column, by default None
+
+    Returns
+    -------
+    pd.DataFrame
+        Resampled DataFrame
+
+    """
+    def resample(df: pd.DataFrame, datetime_column: str, resample_time:int) -> pd.DataFrame:
+        """Resamples df
+        
+        Parameters
+        ----------
+        df : DataFrame
+            Data Frame to be resampled
+        resample_time : int
+            New sample time in microseconds
+        datetime_column : str
+            Name of DateTime column
+
+        """
+        df.drop_duplicates(subset=datetime_column, inplace=True)
+        
+        # Set the index as the date (preserver current)
+        index_name = df.index.name
+        if index_name is not None:
+            df = df.reset_index()
+        df = df.set_index(datetime_column, drop=True)
+
+        # Resample
+        _df = df.resample(f'{resample_time}U').asfreq()
+
+        # Join with original
+        df = _df.join(df, lsuffix='__', how='outer')
+
+        for column in [c for c in df.columns if c.endswith('__')]:
+            # _tmpdf[column].fillna(_tmpdf[column[:-1]], inplace=True)
+            del df[column]
+
+        # df[datetime_column] = df.index.values
+        
+        df = df.apply(pd.Series.interpolate, args=('time',)).bfill()
+        df = df.resample(f'{resample_time}U').asfreq()        
+
+        df = df.reset_index()
+
+        if index_name is not None:
+            df = df.set_index(index_name, drop=True)
+        
+        return df
+
+    if datetime_column is None and time_column == 'index':
+
+        # If the time column is the index
+        datetime_column = '__datetime'
+        df[datetime_column] = pd.to_datetime(df.index, unit=time_unit) 
+        df = resample(df, datetime_column, resample_time=resample_time)
+        df = df.drop(datetime_column, axis=1)
+
+    elif datetime_column is None:
+
+        # If a time column is passed
+        datetime_column = '__datetime'
+        df[datetime_column] = pd.to_datetime(df[time_column], unit=time_unit)    
+        df = resample(df, datetime_column, resample_time=resample_time)
+        df = df.drop(datetime_column, axis=1)
+
+    else:
+
+        #  If a datetime column is passed
+        df = resample(df, datetime_column, resample_time=resample_time)
+    
+    return df
