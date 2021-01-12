@@ -9,6 +9,15 @@ from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 
+def autocorr(x):
+    x = np.array(x)
+    n = x.size
+    norm = (x - np.mean(x))
+    result = np.correlate(norm, norm, mode='same')
+    acorr = result[n//2 + 1:] / (x.var() * np.arange(n-1, n//2, -1))
+    lag = np.abs(acorr).argmax() + 1
+    r = acorr[lag-1]        
+    return r, lag
 
 def low_pass(sig, time, freq_cutoff, N=5):
     """Applies a Nth order butterworth lowpass filter.
