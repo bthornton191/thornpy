@@ -30,7 +30,7 @@ opencv-python==4.2.0.34
 pandas==0.25.3
 parso==0.7.1
 pickleshare==0.7.5
-Pillow==7.1.2
+Pillow==8.2.0
 pkginfo==1.5.0.1
 prompt-toolkit==3.0.8
 Pygments==2.5.2
