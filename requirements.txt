@@ -39,7 +39,7 @@ pyparsing==2.3.1
 python-dateutil==2.8.0
 python-pptx==0.6.18
 pytz==2019.3
-pywin32==228
+pywin32==301
 pywin32-ctypes==0.2.0
 pyzmq==19.0.2
 readme-renderer==24.0
