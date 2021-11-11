@@ -583,9 +583,13 @@ def manually_clean_sig(x, y, print_debug=False, indices=False, _fig=None):
     else:
         return y
 
-def resample_dataframe_non_time(df : pd.DataFrame, n_samples : int, column : str) -> pd.DataFrame:
+def resample_dataframe_non_time(df : pd.DataFrame, n_samples : int, column : str, x_range=None) -> pd.DataFrame:
 
-    x = np.linspace(df[column].min(), df[column].max(), n_samples)    
+    if x_range is None:
+        x = np.linspace(df[column].min(), df[column].max(), n_samples)    
+    else:
+        x = np.linspace(x_range[0], x_range[1], n_samples)
+        
     _df = df.drop_duplicates(subset=column).set_index(column, drop=True)
     df = _df.reindex(_df.index.union(x)).interpolate('values').loc[x].reset_index(drop=False)
 
