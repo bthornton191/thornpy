@@ -3,9 +3,20 @@
 """
 import os
 import csv
+from typing import Union
+from subprocess import Popen
+from pathlib import Path
 
 from scipy.io import loadmat
 import pandas as pd
+
+def open_in_explorer(path : os.PathLike) -> None:
+    if Path(path).is_dir():
+        _ = Popen(f'explorer.exe /root,"{path}"')
+    elif Path(path).is_file():
+        _ = Popen(f'explorer.exe /select,"{path}"')
+    else:
+        raise FileNotFoundError()
 
 def num_to_ith(num):
     """Converts an integer to a string containing an ordinal number (1st, 2nd, 3rd, ect.)
