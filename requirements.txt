@@ -29,7 +29,7 @@ numpy==1.16.2
 pandas==0.25.3
 parso==0.7.1
 pickleshare==0.7.5
-Pillow==7.1.2
+Pillow==9.0.0
 pkginfo==1.5.0.1
 prompt-toolkit==3.0.8
 Pygments==2.5.2
