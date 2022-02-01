@@ -583,19 +583,44 @@ def manually_clean_sig(x, y, print_debug=False, indices=False, _fig=None):
     else:
         return y
 
-def resample_dataframe_non_time(df : pd.DataFrame, n_samples : int, column : str, x_range=None) -> pd.DataFrame:
+def resample_dataframe_non_time(
+        df: pd.DataFrame,
+        n_samples: int,
+        column: str,
+        x_range=None,
+        apply_rolling_average=False,
+        **rolling_args,
+    ) -> pd.DataFrame:
 
     if x_range is None:
         x = np.linspace(df[column].min(), df[column].max(), n_samples)    
     else:
         x = np.linspace(x_range[0], x_range[1], n_samples)
         
-    _df = df.drop_duplicates(subset=column).set_index(column, drop=True)
-    df = _df.reindex(_df.index.union(x)).interpolate('values').loc[x].reset_index(drop=False)
+    _df = (
+        df.drop_duplicates(subset=column)
+        .set_index(column, drop=True)
+    )
+    
+    if apply_rolling_average:
+        _df = _df.rolling(**rolling_args)
+    
+    df = (
+        _df.reindex(_df.index.union(x))
+        .interpolate('values')
+        .loc[x]
+        .reset_index(drop=False)
+    )
 
     return df
 
-def resample_dataframe(df: pd.DataFrame, resample_time: int, time_column='index', time_unit='s', datetime_column=None) -> pd.DataFrame:
+def resample_dataframe(
+        df: pd.DataFrame,
+        resample_time: int,
+        time_column='index',
+        time_unit='s',
+        datetime_column=None
+    ) -> pd.DataFrame:
     """Resamples `df` using sample time `resample_time` in microseconds.
 
     Parameters
@@ -615,9 +640,8 @@ def resample_dataframe(df: pd.DataFrame, resample_time: int, time_column='index'
     -------
     pd.DataFrame
         Resampled DataFrame
-
     """
-    def resample(df: pd.DataFrame, datetime_column: str, resample_time:int) -> pd.DataFrame:
+    def resample(df: pd.DataFrame, datetime_column: str, resample_time: int) -> pd.DataFrame:
         """Resamples df
         
         Parameters
@@ -628,7 +652,6 @@ def resample_dataframe(df: pd.DataFrame, resample_time: int, time_column='index'
             New sample time in microseconds
         datetime_column : str
             Name of DateTime column
-
         """
         df.drop_duplicates(subset=datetime_column, inplace=True)
         
