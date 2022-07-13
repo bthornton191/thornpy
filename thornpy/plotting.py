@@ -1,8 +1,12 @@
-import matplotlib.pyplot as plt
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
-import numpy as np
+from PIL import Image
+
 
 def plot_3d(x, y, z, figure=None, x_label='X', y_label='Y', z_label='Z'):    
     """Creates a 3D plot using matplotlib
@@ -174,3 +178,33 @@ def corrplot(data, size_scale=500, marker='s'):
         y_order=data.columns[::-1],
         size_scale=size_scale
     )
+
+
+def concat_images(input_files, output_file, vertical=True):
+    images = [Image.open(x) for x in input_files]
+    widths, heights = zip(*(i.size for i in images))
+
+    max_width = max(widths)
+    total_height = sum(heights)
+
+    new_im = Image.new('RGB', (max_width, total_height))
+
+    offset = 0
+    for im in images:
+        new_im.paste(im, (0, offset) if vertical else (offset, 0))
+        offset += im.size[1 if vertical else 0]
+
+    new_im.save(output_file)
+
+
+def save_multifigs(figs, filename: Path):
+    filename = Path(filename)
+    image_files = []
+
+    with TemporaryDirectory() as tmpdir:
+        for i, fig in enumerate(figs):
+            image_file = Path(tmpdir) / f'fig_{i}{filename.suffix}'
+            fig.savefig(image_file)
+            image_files.append(image_file)
+
+        concat_images(image_files, filename)

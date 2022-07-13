@@ -1,14 +1,15 @@
 """Miscellaneous tools.
 
 """
-import os
 import csv
-from typing import Union
-from subprocess import Popen
+import os
 from pathlib import Path
+from subprocess import Popen
 
-from scipy.io import loadmat
 import pandas as pd
+from IPython.display import display_html
+from scipy.io import loadmat
+
 
 def open_in_explorer(path : os.PathLike) -> None:
     if Path(path).is_dir():
@@ -175,3 +176,22 @@ def dict_to_csv(data, filename):
         writer = csv.writer(outfile)
         writer.writerow(data.keys())
         writer.writerows(zip(*data.values()))
+
+def display_df_side_by_side(df1: pd.DataFrame, df2: pd.DataFrame):
+    """Displays two `pd.DataFrames` side by side in a jupyter notebook
+
+    Note
+    ----
+    Only works in a jupyter notebook
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        Left `pd.DataFrame`
+    df2 : pd.DataFrame
+        Right `pd.DataFrame`
+    """
+    df1_styler = df1.style.set_table_attributes("style='display:inline'").set_caption('df1')
+    df2_styler = df2.style.set_table_attributes("style='display:inline'").set_caption('df2')
+
+    display_html(df1_styler._repr_html_() + df2_styler._repr_html_(), raw=True)
