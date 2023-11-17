@@ -1,8 +1,10 @@
 """Miscellaneous tools.
 
 """
+from numbers import Number
 import os
 import csv
+import re
 from typing import Union
 from subprocess import Popen
 from pathlib import Path
@@ -56,6 +58,55 @@ def num_to_ith(num):
         suffix += ' to last'
 
     return  value + suffix
+
+
+def num_to_str(num: Number,
+               places: int,
+               allow_less=False,
+               use_scientific: Union[bool, float] = False) -> str:
+    """Converts a number to a string with a given number of significant figures.
+    
+    Parameters
+    ----------
+    num : Number
+        Number to be converted
+    places : int
+        Number of decimal places to use
+    allow_less : bool, optional
+        If True, allows the number to be converted to a string with less decimal places than 
+        `places`, by default False
+    use_scientific : bool or Number, optional
+        If True, uses scientific notation. If False, uses decimal notation. 
+        If a number is passed, uses scientific notation if `num` is greater 
+        than `use_scientific`, by default False
+    
+    Returns
+    -------
+    str
+        Number converted to a string with a given number of decimal places
+
+    """
+    if not isinstance(use_scientific, bool) and isinstance(use_scientific, Number):
+        if use_scientific > 1:
+            use_scientific = abs(num) >= abs(use_scientific)
+        else:
+            use_scientific = abs(num) <= abs(use_scientific)
+
+    if use_scientific:
+        string = f'{num:.{places}e}'
+    else:
+        string = f'{num:.{places}f}'
+
+    if allow_less and '.' in string:
+
+        left, right, *exp = re.split(r'\.|e', string, flags=re.IGNORECASE)
+        right = str(round(float(f'0.{right}'), places)).replace('0.', '.')
+        if right == '.0':
+            right = ''
+        string = 'e'.join([f'{left}{right}', *exp])
+
+    return string
+
 
 def read_data_string(text, delimiter=',', newline='\n', has_headerline=True):
     """Reads a delimited string into a list of dictionaries.  Functions very similar to :meth:`numpy.genfromtxt`, but for strings instead of text files.

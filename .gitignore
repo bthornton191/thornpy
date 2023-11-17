@@ -13,3 +13,5 @@ __pycache__/
 /demo.py
 thornpy/arcarc.pkl
 **.ipynb
+stubs
+typings

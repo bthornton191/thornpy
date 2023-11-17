@@ -1,8 +1,14 @@
+from pathlib import Path
+from typing import List
 import matplotlib.pyplot as plt
-
+from matplotlib.figure import Figure
 import pandas as pd
 import seaborn as sns
 import numpy as np
+
+
+import io
+from PIL import Image
 
 def plot_3d(x, y, z, figure=None, x_label='X', y_label='Y', z_label='Z'):    
     """Creates a 3D plot using matplotlib
@@ -174,3 +180,21 @@ def corrplot(data, size_scale=500, marker='s'):
         y_order=data.columns[::-1],
         size_scale=size_scale
     )
+
+def save_multifig(figs: List[Figure], filename: Path):
+    """Save multiple figures to a single file."""
+    imgs = [io.BytesIO() for _ in figs]
+    for fig, img in zip(figs, imgs):
+        fig.savefig(img, format="png")
+    imgs = [Image.open(img) for img in imgs]
+    imgs_comb = np.hstack((np.asarray(i) for i in imgs))
+    imgs_comb = Image.fromarray(imgs_comb)
+    imgs_comb.save(filename)
+    return imgs_comb
+
+def concat_images(image_files: List[Path], filename: Path):
+    """Concatenate images horizontally."""
+    imgs = [Image.open(img) for img in image_files]
+    imgs_comb = np.hstack((np.asarray(i) for i in imgs))
+    imgs_comb = Image.fromarray(imgs_comb)
+    imgs_comb.save(filename)

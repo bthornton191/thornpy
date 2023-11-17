@@ -15,11 +15,11 @@ def str_is_num(string):
         True if string represents a number
 
     """
-    is_numeric = False
-    if string:
-        if string.replace('.', '', 1).replace('-','',1).isdigit():
-            is_numeric = True    
-    return is_numeric
+    try:
+        float(string)
+    except ValueError:
+        return False
+    return True
 
 def str_is_pos_num(string):
     """Returns True if string is a positive number
