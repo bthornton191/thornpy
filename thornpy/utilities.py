@@ -10,7 +10,7 @@ from subprocess import Popen
 from typing import Union
 
 import pandas as pd
-from IPython.display import display_html
+
 from scipy.io import loadmat
 
 
@@ -248,6 +248,7 @@ def display_df_side_by_side(df1: pd.DataFrame, df2: pd.DataFrame):
     df2 : pd.DataFrame
         Right `pd.DataFrame`
     """
+    from IPython.display import display_html
     df1_styler = df1.style.set_table_attributes("style='display:inline'").set_caption('df1')
     df2_styler = df2.style.set_table_attributes("style='display:inline'").set_caption('df2')
 
